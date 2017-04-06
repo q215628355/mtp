@@ -1,0 +1,9 @@
+RewriteEngine on
+#open LoadModule headers_module modules/mod_headers.so to  httpd.conf
+Header set Access-Control-Allow-Origin "*"  
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ index.php?/$1 [QSA,PT,L]
+
+
+
