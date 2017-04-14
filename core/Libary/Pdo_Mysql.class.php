@@ -245,7 +245,7 @@ class Pdo_Mysql{
             if(is_array($where)){
              foreach($where as $k=>$val){                 
                  if(preg_match('/^\d+$/',$k)) {
-                    $this->consistent['where'] .= isset($val)  ? ' and '.$val : ''; 
+                    $this->consistent['where'] .= isset($val)  ? ' and ('.$val .')' : ''; 
                  }
                  else {
                      
@@ -253,13 +253,13 @@ class Pdo_Mysql{
                     if(isset($k[1])) $k =  $k[0].'.'.'`'.$k[1].'`';
                     else $k = '`'.$k[0].'`';
                     
-                    $this->consistent['where'] .= isset($val)  ? ' and '.$k."='".$this->getValue($val)."'" : '';  
+                    $this->consistent['where'] .= isset($val)  ? ' and ('.$k."='".$this->getValue($val)."')" : '';  
                      
                  } 
               }  
             }
             else if(is_string($where)){
-               $this->consistent['where'] = "AND " . $where;    
+               $this->consistent['where'] = "AND (" . $where .")";    
             }            
         } 
         return $this;   
