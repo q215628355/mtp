@@ -151,4 +151,13 @@ class Functions{
         }
         return $new_array; 
     } 
+    //中文字符串转数组    
+    function ch2arr($str)
+    {
+        $length = mb_strlen($str, 'utf-8');
+        $array = [];
+        for ($i=0; $i<$length; $i++)  
+            $array[] = mb_substr($str, $i, 1, 'utf-8');    
+        return $array;
+    } 
 }
