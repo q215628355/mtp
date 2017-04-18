@@ -19,6 +19,9 @@ class Pdo_Mysql{
     protected $redis_open  = null;  
     protected $preFix = null;// 表前缀占位符
     protected $_unset = true;//不可修改此参数
+     // 数据库表达式
+    protected $exp = ['eq' => '=', 'neq' => '<>', 'gt' => '>', 'egt' => '>=', 'lt' => '<', 'elt' => '<=', 'notlike' => 'NOT LIKE', 'like' => 'LIKE', 'in' => 'IN', 'exp' => 'EXP', 'notin' => 'NOT IN', 'not in' => 'NOT IN', 'between' => 'BETWEEN', 'not between' => 'NOT BETWEEN', 'notbetween' => 'NOT BETWEEN', 'exists' => 'EXISTS', 'notexists' => 'NOT EXISTS', 'not exists' => 'NOT EXISTS', 'null' => 'NULL', 'notnull' => 'NOT NULL', 'not null' => 'NOT NULL', '> time' => '> TIME', '< time' => '< TIME', '>= time' => '>= TIME', '<= time' => '<= TIME', 'between time' => 'BETWEEN TIME', 'not between time' => 'NOT BETWEEN TIME', 'notbetween time' => 'NOT BETWEEN TIME'];
+
     /*构造函数*/
     function __construct($_config=array()){ 
         
@@ -242,24 +245,13 @@ class Pdo_Mysql{
     public function where($where){
         $this->consistent['where'] = '';
         if(!empty($where)){
-            if(is_array($where)){
-             foreach($where as $k=>$val){                 
-                 if(preg_match('/^\d+$/',$k)) {
-                    $this->consistent['where'] .= isset($val)  ? ' and ('.$val .')' : ''; 
-                 }
-                 else {
-                     
-                    $k = explode('.',$k);
-                    if(isset($k[1])) $k =  $k[0].'.'.'`'.$k[1].'`';
-                    else $k = '`'.$k[0].'`';
-                    
-                    $this->consistent['where'] .= isset($val)  ? ' and ('.$k."='".$this->getValue($val)."')" : '';  
-                     
-                 } 
+            if(is_array($where)){              
+             foreach($where as $k=>$val){   
+                 $this->consistent['where'] .= ' AND ' .$this->_getSql($k,$val);    
               }  
             }
             else if(is_string($where)){
-               $this->consistent['where'] = "AND (" . $where .")";    
+               $this->consistent['where'] = " AND (" . $where .")";    
             }            
         } 
         return $this;   
@@ -396,7 +388,7 @@ class Pdo_Mysql{
                  if(preg_match('/^\d+$/',$k)) 
                    $set[]= empty($val) ? '' : $val;
                  else 
-                   $set[]=   '`'.$k."`='".$this->getValue($val)."'";            
+                   $set[]=   '`'.$k."`=".$this->getValue($val);            
               }  
                $set =  implode(', ', $set);
             }
@@ -435,7 +427,7 @@ class Pdo_Mysql{
                   $set2 = array();                  
                   foreach($val as $kk=>$vv){
                     $fields[]='`'.$kk.'`';              
-                    $set2[]= "'".$this->getValue($vv)."'";                      
+                    $set2[]=  $this->getValue($vv);                      
                   }            
                   $fields = "(".implode(',',$fields).")";                  
                   $set[] = "(".implode(",",$set2).")";
@@ -472,7 +464,7 @@ class Pdo_Mysql{
                  if(preg_match('/^\d+$/',$k)) 
                    $set[]= empty($val) ? '' : $val;
                  else 
-                   $set[]=   '`'.$k."`='".$this->getValue($val) ."'";            
+                   $set[]=   '`'.$k."`=".$this->getValue($val);            
               }  
                $set =  implode(', ', $set);
             }
@@ -503,7 +495,7 @@ class Pdo_Mysql{
         $set = [];        
         foreach($data as $k=>$val){  
            if($val){               
-               $set[] = " `{$k}` = `{$k}` + '".$this->getValue($val) ."' ";  
+               $set[] = " `{$k}` = `{$k}` + ".$this->getValue($val);  
            }          
         }  
         if(empty($set)) return false;
@@ -526,7 +518,7 @@ class Pdo_Mysql{
         $set = [];        
         foreach($data as $k=>$val){  
            if($val){         
-               $set[] = " `{$k}` = `{$k}` - '".$this->getValue($val) ."' ";  
+               $set[] = " `{$k}` = `{$k}` - ".$this->getValue($val) ;  
            }          
         }  
         if(empty($set)) return false;
@@ -585,9 +577,40 @@ class Pdo_Mysql{
     protected  function getValue($value){
           //$value = addcslashes($value,"'");
           $value = addslashes($value);
-          return $value;         
+          return "'" . $value . "'";         
     }
-    
-    
-    
+    //设置key=>value 转换为sql and语法
+    protected  function _getSql($k,$val){   
+        if(preg_match('/^\d+$/',$k)) {
+            return isset($val)  ? '(' . $val .')' : ''; 
+        }                
+        else {
+            $k = explode('.',$k);
+            if(isset($k[1])) $k =  $k[0].'.'.'`'.$k[1].'`';
+            else $k = '`'.$k[0].'`';
+
+            if(!is_array($val)){                        
+               return  isset($val)  ? '('. $k . '=' . $this->getValue($val) . ')' : '';                 
+            } 
+            list($exp, $value) = $val;            
+            $rule = 'AND';
+            $item = array_pop($val);
+            // 传入 or 或者 and
+            if (is_string($item) && in_array($item, ['AND', 'and', 'OR', 'or'])) {
+                $rule = $item;
+            } else{
+                array_push($val,$item);
+            }
+            if(isset($this->exp[$exp])){
+                unset($val[0]);
+            }
+            $str=[];
+            foreach($val as $key=>$value){
+                $str[]=  $this->getValue($value) ;
+            }
+            $value = implode(' ' . $rule . ' ',$str);
+            $exp = $this->exp[$exp] ?? '=';   
+            return '( ' . $k . ' ' . $exp  .' '. $value . ')';  
+        }    
+    }
 }
